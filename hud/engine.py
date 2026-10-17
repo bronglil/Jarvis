@@ -180,6 +180,7 @@ def _weather(city, weekly=False):
             "city": None,
             "open": None,
             "card": None,
+            "agent": _who("mira"),
         }
     data = _forecast(place)
     if weekly:
@@ -228,6 +229,7 @@ def _weather(city, weekly=False):
         "city": place["name"],
         "open": None,
         "card": card,
+        "agent": _who("mira"),
     }
 
 
@@ -244,7 +246,40 @@ def _email():
             "detail": "Opening your inbox",
             "meta": "Sign in if Google asks",
         },
+        "agent": _who("ivo"),
     }
+
+
+AGENTS = {
+    "brong": ("Brong", "Lead"),
+    "mira": ("Mira", "Weather"),
+    "atlas": ("Atlas", "Research"),
+    "jules": ("Jules", "Ideas"),
+    "nico": ("Nico", "Numbers"),
+    "ivo": ("Ivo", "Mail"),
+}
+
+
+def _who(agent_id):
+    name, role = AGENTS.get(agent_id, AGENTS["brong"])
+    return {
+        "id": agent_id if agent_id in AGENTS else "brong",
+        "name": name,
+        "role": role,
+    }
+
+
+def _agent_for_command(command):
+    head = (command or "").split()[0].lower()
+    if head in ("joke", "dadjoke", "fact", "bored", "drink", "prompt", "cat", "catfact", "random"):
+        return "jules"
+    if head in ("calculate", "clock", "stock", "crypto", "currency"):
+        return "nico"
+    if head in ("weather", "forecast"):
+        return "mira"
+    if head in ("gmail", "email", "message"):
+        return "ivo"
+    return "brong"
 
 
 def _agent_card(agent, detail):
@@ -291,13 +326,14 @@ def _wiki(topic):
     return title, sentence
 
 
-def _pack(say, pending=None, city=None, open_url=None, card=None, stop=False):
+def _pack(say, pending=None, city=None, open_url=None, card=None, stop=False, agent="brong"):
     result = {
         "say": say,
         "pending": pending,
         "city": city,
         "open": open_url,
         "card": card,
+        "agent": _who(agent),
     }
     if stop:
         result["stop"] = True
@@ -550,8 +586,12 @@ class Engine(object):
             lines = self._tidy(list(self.output))
             waiting = self.waiting
             title = (self.current_command or "Brong").split()[0]
+        speaker = _agent_for_command(self.current_command)
         if not lines:
-            return _pack("That command didn't come back with anything. Try saying it another way.")
+            return _pack(
+                "That command didn't come back with anything. Try saying it another way.",
+                agent=speaker,
+            )
         speech = self._speakable(lines)
         card = {
             "kind": "answer",
@@ -560,7 +600,7 @@ class Engine(object):
             "detail": "\n".join(lines)[:1600],
             "meta": "Say cancel to leave this" if waiting else "",
         }
-        return _pack(speech, "plugin" if waiting else None, card=card)
+        return _pack(speech, "plugin" if waiting else None, card=card, agent=speaker)
 
     def _tidy(self, lines):
         cleaned = []
@@ -696,7 +736,7 @@ class Engine(object):
         if not found:
             return None
         title, blurb = found
-        return _pack(blurb, card=_agent_card("KNOWLEDGE", blurb))
+        return _pack(blurb, card=_agent_card("ATLAS", blurb), agent="atlas")
 
     def _suggest(self, text):
         match = difflib.get_close_matches(text, self.names, n=1, cutoff=0.72)
