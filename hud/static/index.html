@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brong</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --cyan: #7ef6ff;
+      --ink: #031018;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: var(--cyan);
+      font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    #field {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .brand, .clock, .readout, .card, form {
+      position: absolute;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .brand {
+      top: 4vh;
+      left: 4vw;
+      letter-spacing: 0.62em;
+      font-size: 14px;
+      text-shadow: 0 0 16px rgba(0, 210, 255, 0.85);
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 6px;
+      letter-spacing: 0.28em;
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .clock {
+      top: 4vh;
+      right: 4vw;
+      letter-spacing: 0.22em;
+      font-size: 13px;
+    }
+
+    #core {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      top: 46%;
+      width: min(34vw, 380px);
+      height: min(34vw, 380px);
+      transform: translate(-50%, -50%);
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+      padding: 0;
+    }
+
+    .ring, .iris, .pupil {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .ring {
+      border: 1px solid rgba(110, 230, 255, 0.45);
+    }
+
+    .r1 { width: 100%; height: 100%; border-style: dashed; animation: spin 28s linear infinite; }
+    .r2 {
+      width: 78%;
+      height: 78%;
+      border: 0;
+      background: conic-gradient(from 20deg, transparent 0 72%, rgba(126, 246, 255, 0.95) 78%, transparent 86% 100%);
+      -webkit-mask: radial-gradient(circle, transparent 64%, #000 66%);
+      mask: radial-gradient(circle, transparent 64%, #000 66%);
+      animation: spin 18s linear infinite reverse;
+      filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.8));
+    }
+    .r3 {
+      width: 58%;
+      height: 58%;
+      background: repeating-conic-gradient(from 0deg, rgba(126, 246, 255, 0.8) 0 2deg, transparent 2deg 18deg);
+      -webkit-mask: radial-gradient(circle, transparent 78%, #000 80% 86%, transparent 88%);
+      mask: radial-gradient(circle, transparent 78%, #000 80% 86%, transparent 88%);
+      animation: spin 12s linear infinite;
+    }
+
+    .iris {
+      width: 42%;
+      height: 42%;
+      background: radial-gradient(circle, #063e3a 0%, #042428 46%, #02080c 72%);
+      box-shadow: 0 0 30px rgba(0, 190, 220, 0.35), inset 0 0 24px rgba(0, 255, 220, 0.25);
+      animation: breathe 3.4s ease-in-out infinite;
+    }
+
+    .pupil {
+      width: 14%;
+      height: 14%;
+      background: radial-gradient(circle, #031014 0%, #000 70%);
+      box-shadow: 0 0 18px rgba(80, 255, 230, 0.35);
+    }
+
+    body.live .r1 { animation-duration: 10s; }
+    body.live .r2 { animation-duration: 6s; }
+    body.live .r3 { animation-duration: 4.5s; }
+    body.live .iris {
+      box-shadow: 0 0 46px rgba(0, 220, 255, 0.75), inset 0 0 30px rgba(80, 255, 230, 0.45);
+    }
+
+    body.speaking .iris { animation-duration: 0.7s; }
+
+    @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+    @keyframes breathe {
+      0%, 100% { transform: translate(-50%, -50%) scale(0.96); }
+      50% { transform: translate(-50%, -50%) scale(1.04); }
+    }
+
+    .readout {
+      left: 0;
+      right: 0;
+      bottom: 12vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+      padding: 0 10vw;
+    }
+
+    #status {
+      letter-spacing: 0.46em;
+      font-size: 12px;
+      text-shadow: 0 0 12px rgba(0, 210, 255, 0.9);
+    }
+
+    #heard, #reply {
+      min-height: 1.2em;
+      max-width: 640px;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      color: rgba(190, 245, 255, 0.82);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    #reply { color: #f3fdff; }
+
+    .card {
+      right: 3vw;
+      top: 14vh;
+      width: min(300px, 28vw);
+      padding: 14px 16px;
+      border: 1px solid rgba(120, 225, 255, 0.45);
+      background: rgba(1, 10, 18, 0.72);
+      box-shadow: 0 0 24px rgba(0, 140, 190, 0.18);
+      text-align: left;
+    }
+
+    .card[hidden] { display: none; }
+    .card .kicker { letter-spacing: 0.22em; font-size: 11px; opacity: 0.75; }
+    .card .temp {
+      margin: 6px 0;
+      font-size: 40px;
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 16px rgba(0, 210, 255, 0.55);
+    }
+    .card.email .temp { font-size: 28px; }
+    .card .detail, .card .meta {
+      font-size: 12px;
+      line-height: 1.45;
+      letter-spacing: 0.03em;
+      white-space: pre-wrap;
+      color: #e7fbff;
+      text-transform: none;
+    }
+    .card.answer .temp:empty { display: none; }
+    .card.answer .detail { font-size: 14px; }
+
+    .options {
+      position: absolute;
+      z-index: 4;
+      left: 3vw;
+      top: 14vh;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 148px;
+      pointer-events: auto;
+    }
+
+    .options button {
+      background: rgba(0, 10, 18, 0.78);
+      color: var(--cyan);
+      border: 1px solid rgba(126, 246, 255, 0.38);
+      font: inherit;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 9px 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .options button.talk {
+      border-color: #9af7ff;
+      box-shadow: 0 0 14px rgba(0, 200, 255, 0.28);
+    }
+
+    .options button.active {
+      background: rgba(0, 90, 110, 0.55);
+    }
+
+    form {
+      right: 4vw;
+      bottom: 3.5vh;
+      pointer-events: auto;
+    }
+
+    input {
+      width: min(260px, 30vw);
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(126, 246, 255, 0.35);
+      color: var(--cyan);
+      font: inherit;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      padding: 8px 0;
+      outline: none;
+    }
+
+    input::placeholder { color: rgba(126, 246, 255, 0.38); }
+  </style>
+</head>
+<body>
+  <canvas id="field"></canvas>
+  <div class="brand">BRONG<span id="count">VOICE LINK</span></div>
+  <div class="clock" id="clock">--:--:--</div>
+  <nav class="options" id="options" aria-label="Tasks">
+    <button type="button" class="talk" data-action="talk">Talk</button>
+    <button type="button" data-command="check the forecast">Forecast</button>
+    <button type="button" data-command="check my email">Email</button>
+    <button type="button" data-command="tell me a joke">Joke</button>
+    <button type="button" data-command="tell me a fact">Fact</button>
+    <button type="button" data-command="cat fact">Cat fact</button>
+    <button type="button" data-command="I'm bored">Bored</button>
+    <button type="button" data-command="what time is it">Time</button>
+    <button type="button" data-command="mix me a drink">Drink</button>
+    <button type="button" data-action="calc">Calculate</button>
+  </nav>
+  <button id="core" type="button" aria-label="Speak to Brong">
+    <span class="ring r1"></span>
+    <span class="ring r2"></span>
+    <span class="ring r3"></span>
+    <span class="iris"></span>
+    <span class="pupil"></span>
+  </button>
+  <aside class="card" id="card" hidden>
+    <div class="kicker" id="card-title"></div>
+    <div class="temp" id="card-temp"></div>
+    <div class="detail" id="card-detail"></div>
+    <div class="meta" id="card-meta"></div>
+  </aside>
+  <div class="readout">
+    <div id="status">COMING ONLINE</div>
+    <div id="heard"></div>
+    <div id="reply"></div>
+  </div>
+  <form id="fallback">
+    <input id="typed" autocomplete="off" placeholder="Or type if the mic is off" />
+  </form>
+  <script>
+    const canvas = document.getElementById("field");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const heardEl = document.getElementById("heard");
+    const replyEl = document.getElementById("reply");
+    const core = document.getElementById("core");
+    const card = document.getElementById("card");
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    const traces = [
+      [[0.04, 0.22], [0.22, 0.22], [0.22, 0.30], [0.36, 0.30]],
+      [[0.08, 0.62], [0.18, 0.62], [0.18, 0.70], [0.33, 0.70]],
+      [[0.02, 0.84], [0.30, 0.84], [0.34, 0.78]],
+      [[0.96, 0.20], [0.78, 0.20], [0.74, 0.28], [0.64, 0.28]],
+      [[0.98, 0.48], [0.80, 0.48], [0.72, 0.42]],
+      [[0.97, 0.78], [0.70, 0.78], [0.66, 0.70], [0.60, 0.70]],
+      [[0.50, 0.06], [0.50, 0.16], [0.42, 0.16]],
+      [[0.55, 0.94], [0.55, 0.82], [0.68, 0.82]]
+    ];
+
+    const GREETING = "How can I help you today? I am here to assist you.";
+    let frame = 0;
+    let listening = false;
+    let greeted = false;
+    let speaking = false;
+    let pending = null;
+    let city = null;
+    let recognition = null;
+    let lastHeard = "";
+    let lastAt = 0;
+    let userAsked = false;
+    let awaiting = null;
+    window.__brongFrame = 0;
+
+    function resize() {
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(window.innerWidth * ratio);
+      canvas.height = Math.floor(window.innerHeight * ratio);
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function strokeTrace(points, shift) {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = point[0] * width;
+        const y = point[1] * height;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = "rgba(90, 210, 255, 0.35)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([10, 46]);
+      ctx.lineDashOffset = -shift;
+      ctx.strokeStyle = "rgba(190, 255, 255, 0.95)";
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const node = points[points.length - 1];
+      ctx.beginPath();
+      ctx.arc(node[0] * width, node[1] * height, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(170, 250, 255, 0.9)";
+      ctx.fill();
+    }
+
+    function draw(time) {
+      frame += 1;
+      window.__brongFrame = frame;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      ctx.clearRect(0, 0, width, height);
+      const glow = ctx.createRadialGradient(width / 2, height * 0.46, 40, width / 2, height * 0.46, width * 0.55);
+      glow.addColorStop(0, "rgba(0, 40, 60, 0.45)");
+      glow.addColorStop(1, "rgba(0, 0, 0, 0.2)");
+      ctx.fillStyle = "#02060a";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(70, 160, 190, 0.08)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < width; x += 48) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += 48) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      const shift = (time / 12) % 200;
+      traces.forEach((trace, index) => strokeTrace(trace, shift + index * 18));
+      requestAnimationFrame(draw);
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function showCard(data) {
+      if (!data) {
+        card.hidden = true;
+        card.className = "card";
+        return;
+      }
+      card.hidden = false;
+      card.className = "card " + (data.kind || "answer");
+      document.getElementById("card-title").textContent = data.title || "";
+      document.getElementById("card-temp").textContent = data.temp || "";
+      document.getElementById("card-detail").textContent = data.detail || "";
+      document.getElementById("card-meta").textContent = data.meta || "";
+    }
+
+    function pickVoice() {
+      const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      return voices.find((voice) => /daniel|alex|aaron|google uk english male/i.test(voice.name))
+        || voices.find((voice) => /en[-_]GB/i.test(voice.lang))
+        || voices.find((voice) => /^en/i.test(voice.lang))
+        || null;
+    }
+
+    function speak(text) {
+      return new Promise((resolve) => {
+        if (!window.speechSynthesis || !text) {
+          resolve();
+          return;
+        }
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1;
+        utterance.pitch = 0.92;
+        const voice = pickVoice();
+        if (voice) utterance.voice = voice;
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          speaking = false;
+          document.body.classList.remove("speaking");
+          if (listening) setTimeout(startRecognition, 250);
+          resolve();
+        };
+        utterance.onstart = () => {
+          speaking = true;
+          document.body.classList.add("speaking");
+          if (recognition && listening) {
+            try { recognition.stop(); } catch (error) { /* pauses the mic while Brong talks */ }
+          }
+        };
+        utterance.onend = finish;
+        utterance.onerror = finish;
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+        setTimeout(finish, Math.min(16000, 1500 + text.length * 75));
+      });
+    }
+
+    function setTalking(on) {
+      const talk = document.querySelector("[data-action='talk']");
+      if (!talk) return;
+      talk.classList.toggle("active", on);
+      talk.textContent = on ? "Stop talk" : "Talk";
+    }
+
+    async function handleCommand(text) {
+      let cleaned = text.trim();
+      if (!cleaned) return;
+      if (awaiting === "calc" && !/\b(calculate|compute|what is|what's)\b/i.test(cleaned)) {
+        cleaned = "calculate " + cleaned;
+      }
+      awaiting = null;
+      const now = Date.now();
+      if (cleaned.toLowerCase() === lastHeard && now - lastAt < 2200) return;
+      lastHeard = cleaned.toLowerCase();
+      lastAt = now;
+      heardEl.textContent = cleaned;
+      setStatus("WORKING");
+      let result;
+      try {
+        const response = await fetch("/api/command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: cleaned, pending, city })
+        });
+        result = await response.json();
+      } catch (error) {
+        replyEl.textContent = "Link to Brong failed.";
+        setStatus(listening ? "LISTENING" : "CHOOSE A TASK OR TALK");
+        return;
+      }
+      pending = result.pending || null;
+      if (result.city) city = result.city;
+      replyEl.textContent = result.say || "";
+      showCard(result.card);
+      if (result.open) {
+        fetch("/api/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: result.open })
+        });
+      }
+      if (result.stop) {
+        listening = false;
+        document.body.classList.remove("live");
+        setTalking(false);
+        try { recognition && recognition.stop(); } catch (error) { /* already stopped */ }
+        setStatus("STANDING BY");
+      } else {
+        setStatus(listening ? "LISTENING" : "CHOOSE A TASK OR TALK");
+      }
+      await speak(result.say || "");
+    }
+
+    function startRecognition() {
+      if (!recognition || speaking || !listening) return;
+      try {
+        recognition.start();
+      } catch (error) { /* already listening */ }
+    }
+
+    function enableVoice() {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Recognition) {
+        setStatus("VOICE NEEDS CHROME OR SAFARI");
+        setTalking(false);
+        return;
+      }
+      if (!recognition) {
+        recognition = new Recognition();
+        const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        recognition.continuous = !safari;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+        recognition.onstart = () => {
+          if (!listening) return;
+          document.body.classList.add("live");
+          setStatus("LISTENING");
+        };
+        recognition.onresult = (event) => {
+          let interim = "";
+          let finalText = "";
+          for (let index = event.resultIndex; index < event.results.length; index += 1) {
+            const piece = event.results[index][0].transcript;
+            if (event.results[index].isFinal) finalText += piece;
+            else interim += piece;
+          }
+          if (interim) {
+            heardEl.textContent = interim;
+            setStatus("HEARING YOU");
+          }
+          if (finalText.trim()) handleCommand(finalText.trim());
+        };
+        recognition.onerror = (event) => {
+          const code = event.error || "";
+          if (code === "no-speech" || code === "aborted") return;
+          listening = false;
+          document.body.classList.remove("live");
+          setTalking(false);
+          if (code === "not-allowed" || code === "service-not-allowed") {
+            setStatus("MICROPHONE BLOCKED — ALLOW IT, THEN PRESS TALK");
+          } else if (code === "audio-capture") {
+            setStatus("NO MICROPHONE FOUND");
+          } else if (code === "network") {
+            setStatus("VOICE NEEDS THE INTERNET — PRESS TALK AGAIN");
+          } else {
+            setStatus("MIC ERROR — PRESS TALK AGAIN");
+          }
+        };
+        recognition.onend = () => {
+          if (listening && !speaking) setTimeout(startRecognition, 200);
+        };
+      }
+      listening = true;
+      document.body.classList.add("live");
+      setTalking(true);
+      setStatus("STARTING MIC");
+      startRecognition();
+      if (!greeted) {
+        greeted = true;
+        replyEl.textContent = GREETING;
+        speak(GREETING);
+      }
+    }
+
+    function stopVoice() {
+      listening = false;
+      speaking = false;
+      document.body.classList.remove("live");
+      setTalking(false);
+      try { recognition && recognition.stop(); } catch (error) { /* already stopped */ }
+      setStatus("CHOOSE A TASK OR TALK");
+    }
+
+    async function startVoice() {
+      userAsked = true;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus("THIS BROWSER CANNOT USE THE MICROPHONE");
+        return;
+      }
+      setStatus("ALLOW THE MICROPHONE");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (error) {
+        setStatus("MICROPHONE BLOCKED — ALLOW IT, THEN PRESS TALK");
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      enableVoice();
+    }
+
+    core.addEventListener("click", () => {
+      if (listening) stopVoice();
+      else startVoice();
+    });
+
+    document.getElementById("options").addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.action === "talk") {
+        if (listening) stopVoice();
+        else startVoice();
+        return;
+      }
+      if (button.dataset.action === "calc") {
+        awaiting = "calc";
+        replyEl.textContent = "What should I calculate?";
+        speak("What should I calculate?");
+        return;
+      }
+      if (button.dataset.command) handleCommand(button.dataset.command);
+    });
+
+    document.getElementById("fallback").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = document.getElementById("typed");
+      const text = input.value;
+      input.value = "";
+      handleCommand(text);
+    });
+
+    function tickClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toLocaleTimeString([], { hour12: false });
+    }
+
+    async function waitOnline() {
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        try {
+          const response = await fetch("/api/health");
+          const data = await response.json();
+          if (data.ready) {
+            document.getElementById("count").textContent = data.commands + " COMMANDS LIVE";
+            replyEl.textContent = GREETING;
+            setStatus("CHOOSE A TASK OR TALK");
+            return;
+          }
+          if (data.error) {
+            setStatus("COMMANDS FAILED TO LOAD");
+            return;
+          }
+        } catch (error) { /* server still starting */ }
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+      setStatus("STILL COMING ONLINE — TRY AGAIN");
+    }
+
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = pickVoice;
+    window.addEventListener("resize", resize);
+    resize();
+    requestAnimationFrame(draw);
+    tickClock();
+    setInterval(tickClock, 1000);
+    waitOnline();
+  </script>
+</body>
+</html>
